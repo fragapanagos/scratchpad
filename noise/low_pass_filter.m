@@ -8,9 +8,9 @@ tau = .1;
 
 num = 1;
 den = [tau, 1];
-[numd,dend]=bilinear(num,den,fs,400)
+[numd,dend]=bilinear(num,den,fs,470)
 
-[h, f] = freqz(numd,dend,4096, fs);
+[h, f] = freqz(numd,dend,100000, fs);
 
 % plotting
 figure(1); clf();

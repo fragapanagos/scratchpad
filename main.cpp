@@ -1,30 +1,11 @@
 #include <iostream>
 #include "hello.h"
-#include <vector>
+#include <stdlib.h>
 
 using namespace std;
 
-int main() {
-    int x[2] = {1,2};
-    int y = x[0]++;
-    int z = ++x[1];
-        cout << x[0] << endl;
-				hello
-        cout << x[1] << endl;
-        cout << y << endl;
-        cout << z << endl;
-			cout << testing 12d << endl;
-			cout << testing 12d << endl;
-			cout << testing 12d << endl;
-				cout << testing 12d << endl;
-				cout << testing 12d << endl;
-				cout << testing 12d << endl;
-					cout << testing 12d << endl;
-					cout << testing 12d << endl;
-					cout << testing 12d << endl;
-						cout << testing 12d << endl;
-						cout << testing 12d << endl;
-						cout << testing 12d << endl;
-	int y = 1;
+int main(int argc, char *argv[]) {
+	cout << atoi("") << endl;
+	cout << atoi("9999999") << endl;
     return 0;
 }
