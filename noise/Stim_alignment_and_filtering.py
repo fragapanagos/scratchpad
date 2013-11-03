@@ -39,7 +39,7 @@ def plotSequenceComparison(dt0, seq0, dt1, seq1, ls0=None, ls1='r--+'):
     
     plt.plot(dt0_toplot, seq0_toplot)
     plt.plot(dt1_toplot, seq1_toplot, ls1, ms=12)
-    plt.tight_layout()
+    # plt.tight_layout()
 
 #############################################
 # functions to test
@@ -55,8 +55,9 @@ def loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_inter
     target_lb_dt = target_lb_interval * np.arange(len(measured_lb_intervals))
     print '\ntarget_lb_dt', target_lb_dt
     
-    # plt.figure()
-    # plotSequenceComparison(stim_dt, stim_rates, target_lb_dt, np.zeros((len(target_lb_dt)-1,1)), ls1='g--+')
+    plt.figure()
+    plotSequenceComparison(stim_dt, stim_rates, target_lb_dt, np.zeros((len(target_lb_dt)-1,1)), ls1='g--+')
+    plt.title('Programmed stim sequence and loopback sequence')
 
     # first entry in measured_loopback_intervals is time for stim to start
     stim_dt_aligned[0] = measured_lb_intervals[0]    
@@ -73,15 +74,24 @@ def loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_inter
         stop_idx = np.where(lb_tstop>stim_dt[0:-1])[0][-1]
         print 'Loopback %d: %0.2f to %.02f, start_idx:%d to stop_idx:%d go %0.2f to %0.2f'%(
                 i, lb_tstart, lb_tstop, start_idx, stop_idx, stim_dt[start_idx], stim_dt[stop_idx+1])   
+        lb_tstart_overlap = stim_dt[start_idx]<lb_tstart
+        lb_tstop_overlap  = stim_dt[stop_idx+1]>lb_tstop
+        print 'Overlap at beginning:',(stim_dt[start_idx]<lb_tstart), " Overlap at end:",(stim_dt[stop_idx+1]>lb_tstop)
+        if lb_tstart_overlap:
+            print 'start overlap:',stim_dt[start_idx+1]-lb_tstart 
+        if lb_tstop_overlap:
+            print 'stop overlap:',stim_dt[stop_idx+1] - lb_tstop
 
         dil_rate = measured_lb_intervals[i+1]/float(target_lb_interval)
         print 'dil_rate:',dil_rate
 
-        stim_dt_aligned[start_idx+1:stop_idx+2] = (np.arange(stop_idx-start_idx+1)+1)*tstim + current_exp_time
+        stim_dt_aligned[start_idx+1:stop_idx+2] = (np.arange(stop_idx-start_idx+1)+1)*tstim*dil_rate + current_exp_time
         stim_rates_aligned[start_idx:stop_idx+1] = stim_rates[start_idx:stop_idx+1]/dil_rate
+        # overlap at start edge case
+        # overlap at end edge case
+        current_exp_time = stim_dt_aligned[stop_idx+1]
         print 'stim_dt_aligned:',stim_dt_aligned
         print 'stim_rates_aligned:',stim_rates_aligned.flatten()
-        current_exp_time = stim_dt_aligned[stop_idx+1]
     
     return stim_dt_aligned, stim_rates_aligned
 
@@ -115,18 +125,18 @@ def filterSamples(sample_rates, tsample, tau=.1):
     return filtered_rates
 
 plt.close('all')
-# scratpad for getting things to work
-tstim = .05
+# scratchpad for getting things to work
+tstim = .1
 tsample = .01
 
 nstim = 4
 ndim = 1
 nsample = int(nstim*tstim/tsample)
 
-nlbtick = 3
-target_lb_interval = .1
+nlbtick = 4
+target_lb_interval = .15
 maxTtoStart = 0.01
-dil_rate = 1.
+dil_rate = 2.
 lb_tvar = 0.
 
 measured_lb_intervals = genLoopback(nlbtick, target_lb_interval, dil_rate, maxTtoStart=maxTtoStart, lb_tvar=lb_tvar)
