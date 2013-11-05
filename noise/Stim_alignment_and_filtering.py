@@ -7,12 +7,14 @@ def genStim(nstim, tstim, ndim=1):
     assert nstim%1 == 0, "must specify an integer number of stim"
     stim_dt = np.arange(nstim+1)*tstim
     stim_rates = np.random.randn(nstim, ndim)
+    #stim_rates[0::2,:] = -.9
+    #stim_rates[1::2,:] = .9
     return stim_dt, stim_rates
 
 def genLoopback(nticks, tlb, dil_rate=2, maxTtoStart=.005, lb_tvar=None):
     measured_loopback_intervals = np.zeros(nticks)
-    measured_loopback_intervals[0] = maxTtoStart
-    #measured_loopback_intervals[0] = maxTtoStart*np.random.rand()
+    #measured_loopback_intervals[0] = maxTtoStart
+    measured_loopback_intervals[0] = maxTtoStart*np.random.rand()
     measured_loopback_intervals[1:] = np.ones(nticks-1) * tlb * dil_rate
     if lb_tvar:
         measured_loopback_intervals[1:] = measured_loopback_intervals[1:] + lb_tvar * np.random.randn(nticks-1)
@@ -44,54 +46,89 @@ def plotSequenceComparison(dt0, seq0, dt1, seq1, ls0=None, ls1='r--+'):
 #############################################
 # functions to test
 def loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_intervals):
-    assert len(stim_dt) == stim_rates.shape[0]+1, "length of stim_dt times doesn't align to stim_rates data"
+    nstim = stim_rates.shape[0]
+    ndim = stim_rates.shape[1]
+    assert len(stim_dt) == nstim+1, "length of stim_dt times doesn't align to stim_rates data"
+    target_lb_interval = float(target_lb_interval)
+    n_lb_intervals = len(measured_lb_intervals)
     tstim = stim_dt[1]-stim_dt[0]
     print '\nstim_dt:',stim_dt
-    print 'stim_rates:',stim_rates.flatten()
+    print 'stim_rates:',stim_rates[:,0]
     
     stim_dt_aligned = np.zeros(stim_dt.shape[0]) 
     stim_rates_aligned = np.zeros(stim_rates.shape)
     
-    target_lb_dt = target_lb_interval * np.arange(len(measured_lb_intervals))
+    target_lb_dt = target_lb_interval * np.arange(n_lb_intervals)
     print '\ntarget_lb_dt', target_lb_dt
     
     plt.figure()
-    plotSequenceComparison(stim_dt, stim_rates, target_lb_dt, np.zeros((len(target_lb_dt)-1,1)), ls1='g--+')
+    plotSequenceComparison(stim_dt, stim_rates, target_lb_dt, np.zeros((len(target_lb_dt)-1,ndim)), ls1='g--+')
     plt.title('Programmed stim sequence and loopback sequence')
 
     # first entry in measured_loopback_intervals is time for stim to start
     stim_dt_aligned[0] = measured_lb_intervals[0]    
     print 'stim_dt_aligned:',stim_dt_aligned
-    print 'stim_rates_aligned:',stim_rates_aligned.flatten()
+    print 'stim_rates_aligned:',stim_rates_aligned[:,0]
     
-    current_exp_time = measured_lb_intervals[0]
-    for i in range(len(measured_lb_intervals)-1):
-        print '\nprocessing loopback tick %d'%i
+    last_alignment_time = measured_lb_intervals[0]
+    for i in range(n_lb_intervals-1):
         lb_tstart = target_lb_dt[i]
         lb_tstop  = target_lb_dt[i+1]
-        if lb_tstart > stim_dt[-1]: break
+        if lb_tstart >=  stim_dt[-1]: break
+        print lb_tstart<stim_dt[1:]
+        print np.where(lb_tstart<stim_dt[1:])
         start_idx = np.where(lb_tstart<stim_dt[1:])[0][0]
         stop_idx = np.where(lb_tstop>stim_dt[0:-1])[0][-1]
-        print 'Loopback %d: %0.2f to %.02f, start_idx:%d to stop_idx:%d go %0.2f to %0.2f'%(
+        print '\nLoopback %d: %0.2f to %.02f, start_idx:%d to stop_idx:%d go from %0.2f to %0.2f'%(
                 i, lb_tstart, lb_tstop, start_idx, stop_idx, stim_dt[start_idx], stim_dt[stop_idx+1])   
         lb_tstart_overlap = stim_dt[start_idx]<lb_tstart
         lb_tstop_overlap  = stim_dt[stop_idx+1]>lb_tstop
-        print 'Overlap at beginning:',(stim_dt[start_idx]<lb_tstart), " Overlap at end:",(stim_dt[stop_idx+1]>lb_tstop)
+        print 'Overlap at lb_start:',lb_tstart_overlap, " Overlap at lb_stop:",lb_tstop_overlap
+        handle_lb_tstop_overlap = False
         if lb_tstart_overlap:
-            print 'start overlap:',stim_dt[start_idx+1]-lb_tstart 
+            print 'start overlap:', lb_tstart - stim_dt[start_idx] 
+            start_idx += 1 # compensated by previous iteration
+            print 'shifting start_idx to %d'%start_idx
         if lb_tstop_overlap:
             print 'stop overlap:',stim_dt[stop_idx+1] - lb_tstop
+            if i < n_lb_intervals-2: # another loopback to weight compensation
+                handle_lb_tstop_overlap = True
+                stop_edge_idx = stop_idx
+                stop_idx -= 1
+                print 'using lb measured on both sides of overlap, shifting stop_idx to %d'%stop_idx
+            else: 
+                print 'no lb after overlap, not shifting stop_idx'
 
-        dil_rate = measured_lb_intervals[i+1]/float(target_lb_interval)
-        print 'dil_rate:',dil_rate
+        if stop_idx>=start_idx:
+            print 'Aligning indices %d to %d inclusive'%(start_idx, stop_idx)
+            dil_rate = measured_lb_intervals[i+1]/target_lb_interval
+            print 'dil_rate:',dil_rate
+            stim_dt_aligned[start_idx+1:stop_idx+2] = (np.arange(stop_idx-start_idx+1)+1)*tstim*dil_rate + last_alignment_time
+            stim_rates_aligned[start_idx:stop_idx+1,:] = stim_rates[start_idx:stop_idx+1,:]/dil_rate
+            last_alignment_time = stim_dt_aligned[stop_idx+1]
+            print 'stim_dt_aligned:',stim_dt_aligned
+            print 'stim_rates_aligned:',stim_rates_aligned[:,0]
+        else:
+            print 'Only edge cases to align'
 
-        stim_dt_aligned[start_idx+1:stop_idx+2] = (np.arange(stop_idx-start_idx+1)+1)*tstim*dil_rate + current_exp_time
-        stim_rates_aligned[start_idx:stop_idx+1] = stim_rates[start_idx:stop_idx+1]/dil_rate
-        # overlap at start edge case
-        # overlap at end edge case
-        current_exp_time = stim_dt_aligned[stop_idx+1]
+        if handle_lb_tstop_overlap:
+            w1 = (lb_tstop - stim_dt[stop_edge_idx]) / tstim
+            w2 = (stim_dt[stop_edge_idx+1] - lb_tstop) / tstim
+            dil_rate_end = (w1*measured_lb_intervals[i+1]+ w2*measured_lb_intervals[i+2])/target_lb_interval
+            print 'handling end overlap at idx %d: w1:%0.2f, w2:%0.2f, dil_rate_end:%0.2f'%(stop_edge_idx, w1, w2, dil_rate_end)
+            stim_dt_aligned[stop_edge_idx+1] = tstim*dil_rate_end + last_alignment_time
+            stim_rates_aligned[stop_edge_idx,:] = stim_rates[stop_edge_idx,:]/dil_rate_end
+            last_alignment_time = stim_dt_aligned[stop_edge_idx+1]
+            stop_idx = stop_edge_idx
+            print 'stim_dt_aligned:',stim_dt_aligned
+            print 'stim_rates_aligned:',stim_rates_aligned[:,0]
+
+    if stop_idx < nstim-1:
+        print '\nloopback ended before stim, copying rest of stim'
+        stim_dt_aligned[stop_idx+2:] = (np.arange(nstim-stop_idx-1)+1) * tstim + last_alignment_time
+        stim_rates_aligned[stop_idx+1:,:] = stim_rates[stop_idx+1:,:]
         print 'stim_dt_aligned:',stim_dt_aligned
-        print 'stim_rates_aligned:',stim_rates_aligned.flatten()
+        print 'stim_rates_aligned:',stim_rates_aligned[:,0]
     
     return stim_dt_aligned, stim_rates_aligned
 
@@ -127,17 +164,14 @@ def filterSamples(sample_rates, tsample, tau=.1):
 plt.close('all')
 # scratchpad for getting things to work
 tstim = .1
-tsample = .01
-
 nstim = 4
 ndim = 1
-nsample = int(nstim*tstim/tsample)
 
-nlbtick = 4
-target_lb_interval = .15
-maxTtoStart = 0.01
-dil_rate = 2.
-lb_tvar = 0.
+maxTtoStart = 0.0
+nlbtick = nstim+2
+target_lb_interval = tstim
+dil_rate = 1.
+lb_tvar = target_lb_interval/10.
 
 measured_lb_intervals = genLoopback(nlbtick, target_lb_interval, dil_rate, maxTtoStart=maxTtoStart, lb_tvar=lb_tvar)
 print 'measured_lb_intervals', measured_lb_intervals
@@ -145,14 +179,7 @@ print 'measured_lb_intervals', measured_lb_intervals
 stim_dt, stim_rates = genStim(nstim, tstim, ndim)
 
 stim_dt_aligned, stim_rates_aligned = loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_intervals)
-
-sample_dt, sample_rates = resampleStim(stim_dt, stim_rates, tsample, nsample)
-
-sample_rates_filtered = filterSamples(sample_rates, tsample)
-# plt.figure()
-# plotSequenceComparison(stim_dt, stim_rates, sample_dt, sample_rates)
-
-# plt.figure()
-# plotSequenceComparison(sample_dt, sample_rates, sample_dt, sample_rates_filtered)
+plt.figure()
+plotSequenceComparison(stim_dt, stim_rates, stim_dt_aligned, stim_rates_aligned, ls1='r')
 
 plt.show()
