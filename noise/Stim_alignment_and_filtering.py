@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.signal as signal
 import matplotlib.pyplot as plt
+import pdb
 
 # unit test utility functions
 def genStim(nstim, tstim, ndim=1):
@@ -13,7 +14,7 @@ def genStim(nstim, tstim, ndim=1):
 
 def genLoopback(nticks, tlb, dil_rate=2, maxTtoStart=.005, lb_tvar=None):
     measured_loopback_intervals = np.zeros(nticks)
-    #measured_loopback_intervals[0] = maxTtoStart
+    measured_loopback_intervals[0] = maxTtoStart
     measured_loopback_intervals[0] = maxTtoStart*np.random.rand()
     measured_loopback_intervals[1:] = np.ones(nticks-1) * tlb * dil_rate
     if lb_tvar:
@@ -46,14 +47,13 @@ def plotSequenceComparison(dt0, seq0, dt1, seq1, ls0=None, ls1='r--+'):
 #############################################
 # functions to test
 def loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_intervals):
+    print '\nentering loopbackAlignStim'
     nstim = stim_rates.shape[0]
     ndim = stim_rates.shape[1]
     assert len(stim_dt) == nstim+1, "length of stim_dt times doesn't align to stim_rates data"
     target_lb_interval = float(target_lb_interval)
     n_lb_intervals = len(measured_lb_intervals)
     tstim = stim_dt[1]-stim_dt[0]
-    print '\nstim_dt:',stim_dt
-    print 'stim_rates:',stim_rates[:,0]
     
     stim_dt_aligned = np.zeros(stim_dt.shape[0]) 
     stim_rates_aligned = np.zeros(stim_rates.shape)
@@ -130,11 +130,16 @@ def loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_inter
         print 'stim_dt_aligned:',stim_dt_aligned
         print 'stim_rates_aligned:',stim_rates_aligned[:,0]
     
+    print 'leaving loopbackAlignStim'
     return stim_dt_aligned, stim_rates_aligned
 
 def resampleStim(stim_dt, stim_rates, tsample, nsample):
-    assert tsample * nsample <= stim_dt[-1], "not enough data for requested nsample and tsample"
-    assert len(stim_dt) == stim_rates.shape[0] + 1, "stim_dt times doesn't align to stim_rates data"
+    print '\nentering resampleStim'
+    assert tsample * nsample <= stim_dt[-1], "resampleStim: not enough data for requested nsample(%d) and tsample(%0.2f sec)."\
+                                              %(nsample, tsample) + \
+                                              "Requested %0.2f sec of data. Have %f sec of data"\
+                                              %(tsample*nsample, stim_dt[-1])
+    assert len(stim_dt) == stim_rates.shape[0] + 1, "reampleStim: length of stim_dt times doesn't align to stim_rates data"
     assert nsample%1 == 0, "must specify an integer number of samples, specified %f"%nsample
     ndim = stim_rates.shape[1]
     
@@ -144,15 +149,29 @@ def resampleStim(stim_dt, stim_rates, tsample, nsample):
     for i in range(len(sample_rates)):
         sample_tstart = sample_dt[i]
         sample_tstop  = sample_dt[i+1]
+        print sample_tstart
         sample_start_idx = np.where(sample_tstart<stim_dt[1:])[0][0]
-        sample_stop_idx = np.where(sample_tstop>stim_dt[0:-1])[0][-1]
-        #print 'Sample %d: %0.2f to %.02f, Stim %d to %d: %0.2f to %0.2f'%(
-        #i, sample_tstart, sample_tstop, sample_start_idx, sample_stop_idx, stim_dt[sample_start_idx], stim_dt[sample_stop_idx+1])
-        weights = np.ones(sample_stop_idx - sample_start_idx + 1) * tstim
-        weights[0] = stim_dt[sample_start_idx+1] - sample_tstart
-        weights[-1] = sample_tstop - stim_dt[sample_stop_idx]
-        sample_rates[i,:] = np.average(stim_rates[sample_start_idx:sample_stop_idx+1], weights=weights, axis=0)
+        print sample_tstop
+        if sample_tstop > stim_dt[0]:
+            sample_stop_idx = np.where(sample_tstop>stim_dt[0:-1])[0][-1]
+        else:
+            continue
+        print 'Sample %d: %0.2f to %.02f, Stim %d to %d: %0.2f to %0.2f'%(
+        i, sample_tstart, sample_tstop, sample_start_idx, sample_stop_idx, stim_dt[sample_start_idx], stim_dt[sample_stop_idx+1])
+        if sample_tstart > stim_dt[0]:
+            weights = np.ones(sample_stop_idx - sample_start_idx + 1) * tstim
+            weights[0] = stim_dt[sample_start_idx+1] - sample_tstart
+            weights[-1] = sample_tstop - stim_dt[sample_stop_idx]
+            rates_to_avg = stim_rates[sample_start_idx:sample_stop_idx+1,:]
+        else:
+            weights = np.ones(sample_stop_idx + 2) * tstim
+            weights[0] = stim_dt[0] - sample_tstart
+            weights[-1] = sample_tstop - stim_dt[sample_stop_idx]
+            rates_to_avg = np.zeros((sample_stop_idx+2,ndim))
+            rates_to_avg[1:,:] = stim_rates[:sample_stop_idx+1,:]
+        sample_rates[i,:] = np.average(rates_to_avg, weights=weights, axis=0)
     
+    print 'leaving resampleStim'
     return sample_dt, sample_rates
     
 def filterSamples(sample_rates, tsample, tau=.1):
@@ -161,25 +180,40 @@ def filterSamples(sample_rates, tsample, tau=.1):
     filtered_rates = signal.lfilter(b, a, sample_rates, axis=0)
     return filtered_rates
 
+plt.ion()
 plt.close('all')
 # scratchpad for getting things to work
 tstim = .1
 nstim = 4
 ndim = 1
 
-maxTtoStart = 0.0
+maxTtoStart = 0.1
 nlbtick = nstim+2
 target_lb_interval = tstim
 dil_rate = 1.
-lb_tvar = target_lb_interval/10.
+lb_tvar = 0.
+#lb_tvar = target_lb_interval/10.
 
-measured_lb_intervals = genLoopback(nlbtick, target_lb_interval, dil_rate, maxTtoStart=maxTtoStart, lb_tvar=lb_tvar)
-print 'measured_lb_intervals', measured_lb_intervals
+tsample = tstim/2.
+nsample = int(tstim * nstim * dil_rate / tsample * .95)
+
+print 'tsample %0.2f, nsample %d'%(tsample, nsample)
 
 stim_dt, stim_rates = genStim(nstim, tstim, ndim)
+print 'stim_dt: ', stim_dt
+print 'stim_rates: ', stim_rates[:,0]
+
+measured_lb_intervals = genLoopback(nlbtick, target_lb_interval, dil_rate, maxTtoStart=maxTtoStart, lb_tvar=lb_tvar)
+print 'measured_lb_intervals: ', measured_lb_intervals
 
 stim_dt_aligned, stim_rates_aligned = loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_intervals)
+
 plt.figure()
 plotSequenceComparison(stim_dt, stim_rates, stim_dt_aligned, stim_rates_aligned, ls1='r')
 
+sample_dt, sample_rates = resampleStim(stim_dt_aligned, stim_rates_aligned, tsample, nsample)
+plt.figure()
+plotSequenceComparison(stim_dt_aligned, stim_rates_aligned, sample_dt, sample_rates, ls1='r')
+
 plt.show()
+raw_input()
