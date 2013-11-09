@@ -14,7 +14,7 @@ def genStim(nstim, tstim, ndim=1):
 
 def genLoopback(nticks, tlb, dil_rate=2, maxTtoStart=.005, lb_tvar=None):
     measured_loopback_intervals = np.zeros(nticks)
-    measured_loopback_intervals[0] = maxTtoStart
+    #measured_loopback_intervals[0] = maxTtoStart
     measured_loopback_intervals[0] = maxTtoStart*np.random.rand()
     measured_loopback_intervals[1:] = np.ones(nticks-1) * tlb * dil_rate
     if lb_tvar:
@@ -74,7 +74,7 @@ def loopbackAlignStim(stim_dt, stim_rates, target_lb_interval, measured_lb_inter
     for i in range(n_lb_intervals-1):
         lb_tstart = target_lb_dt[i]
         lb_tstop  = target_lb_dt[i+1]
-        if lb_tstart >=  stim_dt[-1]: break
+        if lb_tstart >= stim_dt[-1]: break
         print lb_tstart<stim_dt[1:]
         print np.where(lb_tstart<stim_dt[1:])
         start_idx = np.where(lb_tstart<stim_dt[1:])[0][0]
@@ -159,12 +159,14 @@ def resampleStim(stim_dt, stim_rates, tsample, nsample):
         print 'Sample %d: %0.2f to %.02f, Stim %d to %d: %0.2f to %0.2f'%(
         i, sample_tstart, sample_tstop, sample_start_idx, sample_stop_idx, stim_dt[sample_start_idx], stim_dt[sample_stop_idx+1])
         if sample_tstart > stim_dt[0]:
-            weights = np.ones(sample_stop_idx - sample_start_idx + 1) * tstim
+            weights = np.zeros(sample_stop_idx - sample_start_idx + 1)
+            weights[1:-1] = np.diff(stim_dt[sample_start_idx+1:sample_stop_idx+1])
             weights[0] = stim_dt[sample_start_idx+1] - sample_tstart
             weights[-1] = sample_tstop - stim_dt[sample_stop_idx]
             rates_to_avg = stim_rates[sample_start_idx:sample_stop_idx+1,:]
         else:
-            weights = np.ones(sample_stop_idx + 2) * tstim
+            weights = np.zeros(sample_stop_idx + 2)
+            weights[1:-1] = np.diff(stim_dt[:sample_stop_idx + 1])
             weights[0] = stim_dt[0] - sample_tstart
             weights[-1] = sample_tstop - stim_dt[sample_stop_idx]
             rates_to_avg = np.zeros((sample_stop_idx+2,ndim))
@@ -190,7 +192,7 @@ ndim = 1
 maxTtoStart = 0.1
 nlbtick = nstim+2
 target_lb_interval = tstim
-dil_rate = 1.
+dil_rate = 1.5
 lb_tvar = 0.
 #lb_tvar = target_lb_interval/10.
 
