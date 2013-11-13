@@ -25,7 +25,12 @@ try:
 		print 'server: waiting for data...'
 		try:
 			data = conn.recv(1024)
-			print 'server: received "' + data + '"'
+			if len(data) == 0:
+				print 'server: socket closed by peer. shutting down...'
+				conn.close()
+				sys.exit(0)
+			else:
+				print 'server: received "' + data + '"'
 		except socket.error as msg:
 			if msg.errno == errno.EAGAIN:
 				print 'server: no data to receive...'

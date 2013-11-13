@@ -38,7 +38,12 @@ try:
 		print 'client: waiting for data...'
 		try:
 			data = s.recv(1024)
-			print 'client: received "' + data + '"'
+			if len(data) == 0:
+				print 'client: socket closed by peer. shutting down...'
+				s.close()
+				sys.exit(0)
+			else:
+				print 'client: received "' + data + '"'
 		except socket.error as msg:
 			if msg.errno == errno.EAGAIN:
 				print 'client: no data to receive...'
