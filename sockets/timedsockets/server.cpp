@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -7,13 +8,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #define PORT "12345"
 
 using namespace std;
 
 static int client_sockfd = 0;
-static int msg[5] = {0, 1, 2, 3, 4};
+static int msg[6]; 
 
 void intHandler(int sigVal) {
 	assert(sigVal == SIGINT);
@@ -85,22 +87,42 @@ int main() {
 	cout << "server: connected to client" << endl;
 
 	int bytes_sent, bytes_rem;
-	int msglen = sizeof(msg);
+	int msglen = sizeof(msg)/sizeof(int);
+	cout << msglen << endl;
+	int val=0;
+	msg[msglen-1]=-1;
+	struct timeval start, finish, diff;
 	while (true) {
-		bytes_rem = msglen;
+		gettimeofday(&start, NULL);
+		for (int i=0; i<msglen-1; i++) {
+			msg[i]=val;
+			val++;
+		}
+		bytes_rem = sizeof(msg);
 		while (bytes_rem > 0) {
 			bytes_sent = send(client_sockfd, msg, bytes_rem, 0);
-			cout << bytes_sent << " bytes sent" << endl;
 			if (bytes_sent == -1) {
 				perror("server send");
 				close(client_sockfd);
 				exit(EXIT_FAILURE);
 			}
+			cout << bytes_sent << " bytes sent" << endl;
 			bytes_rem -= bytes_sent;
 		}
 		if (bytes_rem != 0) {
 			cerr << "transmition error" << endl;
 		}
+		gettimeofday(&finish, NULL);
+		if (start.tv_usec > finish.tv_usec) { 
+			diff.tv_sec = finish.tv_sec - start.tv_sec - 1;
+			diff.tv_usec = finish.tv_usec - start.tv_usec + 1000000;
+		} else {
+			diff.tv_sec = finish.tv_sec - start.tv_sec;
+			diff.tv_usec = finish.tv_usec - start.tv_usec;
+		}
+		cout << "send iteration took " << diff.tv_sec << ".";
+		cout << setw(6) << setfill('0') << diff.tv_usec  << "s" << endl;
+		// usleep(diff.tv_usec);
 		sleep(1);
 	}
 	exit(EXIT_SUCCESS);

@@ -11,7 +11,7 @@ client: client.cpp
 	$(CC) client.cpp $(CXXFLAGS) -o client
 
 server: server.cpp
-	$(CC) server.cpp $(CXXFLAGS) -o server
+	$(CC) server.cpp $(CXXFLAGS) -o server -lrt
 
 # indicate that target clean should always be executed
 .PHONY: clean

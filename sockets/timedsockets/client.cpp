@@ -11,7 +11,7 @@
 #include <sys/select.h>
 
 #define PORT "12345"
-#define BUFLEN 8
+#define BUFLEN 12
 #define MSGLEN 5
 
 using namespace std;
@@ -62,8 +62,10 @@ int main() {
 	fcntl(sockfd, F_SETFL, O_NONBLOCK);
 	fd_set readfds;
 	ssize_t bytes_recv;
+	int buflen=0;
 	while (true) {
-		cout << "client listening for data from server" << endl;
+		memset(msg_buf, 0, MSGLEN*sizeof(int));
+		cout << "\nclient listening for data from server" << endl;
 		FD_ZERO(&readfds);
 		FD_SET(sockfd, &readfds);
 		int ready = select(sockfd+1, &readfds, NULL, NULL, NULL);
@@ -78,21 +80,24 @@ int main() {
 			while (true) {
 				bytes_recv = recv(sockfd, read_buf, sizeof(read_buf), 0);
 				if (bytes_recv > 0) {
-					cout << "received " << bytes_recv << " bytes" << endl;
-					if (bytes_recv > (int)(MSGLEN*sizeof(int))) {
-						memcpy(msg_buf, read_buf, MSGLEN*sizeof(int));
-					} else {
-						memcpy(msg_buf, read_buf, bytes_recv);
-					}
-					for (size_t i=0; i<bytes_recv/sizeof(int); i++) {
+					buflen = bytes_recv/sizeof(int);
+					cout << "received " << bytes_recv << " bytes, buflen " << buflen << endl;
+					cout << "buffer contents:" << endl;
+					for (int i=0; i<BUFLEN; i++) {
 						cout << read_buf[i] << endl;
+					}
+					for (int i=buflen-1; i>=MSGLEN; i--) {
+						if (read_buf[i] == -1) {
+							memcpy(msg_buf, &read_buf[i-MSGLEN], MSGLEN*sizeof(int));
+							memset(read_buf, 0, sizeof(read_buf));
+							break;
+						}
 					}
 				} else {
 					break;
 				}
 			}
-			cout << "done receiving data\n" << endl;
-
+			cout << "done receiving data" << endl;
 			if (bytes_recv < 0 && errno!=EWOULDBLOCK) {
 				perror("client recv");
 			} else if (bytes_recv == 0) {
@@ -100,11 +105,16 @@ int main() {
 				close(sockfd);
 				exit(EXIT_SUCCESS);
 			}
+			cout << "last complete message:" << endl;
+			for (int i=0; i<MSGLEN; i++) {
+				cout << msg_buf[i] << endl;
+			}
+
 		} else {
 			cerr << "select produces unexpected readfds" << endl;
 		}
 
-		sleep(3);
+		sleep(4);
 	}
 }
 
