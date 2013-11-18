@@ -7,13 +7,17 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/select.h>
 
 #define PORT "12345"
-#define BUFFSIZE 5
+#define BUFLEN 8
+#define MSGLEN 5
 
 using namespace std;
 
-static int buffer[BUFFSIZE];
+static int read_buf[BUFLEN];
+static int msg_buf[MSGLEN];
 static int sockfd = 0;
 
 void cleanExit(int sigVal) {
@@ -55,23 +59,52 @@ int main() {
 
 	freeaddrinfo(res);
 
+	fcntl(sockfd, F_SETFL, O_NONBLOCK);
+	fd_set readfds;
 	ssize_t bytes_recv;
 	while (true) {
 		cout << "client listening for data from server" << endl;
-		bytes_recv = recv(sockfd, buffer, sizeof(buffer), 0);
-		if (bytes_recv < 0) {
-			perror("client recv");
-		} else if (bytes_recv == 0) {
-			cout << "server closed connection" << endl;
+		FD_ZERO(&readfds);
+		FD_SET(sockfd, &readfds);
+		int ready = select(sockfd+1, &readfds, NULL, NULL, NULL);
+		if (ready == -1) {
+			perror("client select");
 			close(sockfd);
-			exit(EXIT_SUCCESS);
+			exit(EXIT_FAILURE);
+		}
+		cout << "data from server ready, reading data" << endl;
+
+		if (FD_ISSET(sockfd, &readfds)) {
+			while (true) {
+				bytes_recv = recv(sockfd, read_buf, sizeof(read_buf), 0);
+				if (bytes_recv > 0) {
+					cout << "received " << bytes_recv << " bytes" << endl;
+					if (bytes_recv > (int)(MSGLEN*sizeof(int))) {
+						memcpy(msg_buf, read_buf, MSGLEN*sizeof(int));
+					} else {
+						memcpy(msg_buf, read_buf, bytes_recv);
+					}
+					for (size_t i=0; i<bytes_recv/sizeof(int); i++) {
+						cout << read_buf[i] << endl;
+					}
+				} else {
+					break;
+				}
+			}
+			cout << "done receiving data\n" << endl;
+
+			if (bytes_recv < 0 && errno!=EWOULDBLOCK) {
+				perror("client recv");
+			} else if (bytes_recv == 0) {
+				cout << "server closed connection" << endl;
+				close(sockfd);
+				exit(EXIT_SUCCESS);
+			}
+		} else {
+			cerr << "select produces unexpected readfds" << endl;
 		}
 
-		cout << "received " << bytes_recv << " bytes " << endl;
-		for (int i=0; i<BUFFSIZE; i++) {
-			cout << buffer[i] << endl;
-		}
-		sleep(2);
+		sleep(3);
 	}
 }
 
