@@ -33,7 +33,7 @@ def main():
         #calls.append([matlab_path, '-nodesktop', '-nosplash', '-nojvm', 
         #                  '-r', "hello; exit;"])
         calls.append([matlab_path, '-nodesktop', '-nosplash', '-nojvm', 
-                          '-r', "cdw_cvx("+str(i)+"); exit;"])
+                          '-r', "cdw_cvx('"+str(i)+"'); exit;"])
 
     ###### sequential version ##################################################
     #for i in range(num_decodes):

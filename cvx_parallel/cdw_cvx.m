@@ -1,7 +1,7 @@
-function cdw_cvx(idx)
-load(['A' num2str(idx) '.mat'])
-load(['y' num2str(idx) '.mat'])
-load(['decode_params' num2str(idx) '.mat'])
+function cdw_cvx(idx_string)
+load(['A' idx_string '.mat'])
+load(['y' idx_string '.mat'])
+load(['decode_params' idx_string '.mat'])
 
 FPGA_MAX = params(1);
 beta = params(2);
@@ -21,4 +21,4 @@ cvx_begin
         %sum(weights.^2, 2) <= upperbound^2; 
 cvx_end 
 
-save(['d_weights' num2str(idx) '.mat'], 'd_weights');
+save(['d_weights' idx_string '.mat'], 'd_weights');
