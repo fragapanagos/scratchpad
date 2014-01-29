@@ -53,6 +53,8 @@ def main():
     workers.map(call, calls)
     workers.close()
     workers.join()
+
+    # get my command line cursor back!
     call(['stty', 'echo'])
 
 
