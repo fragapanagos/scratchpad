@@ -9,7 +9,7 @@ def main():
     matlab_path = 'matlab' # assumes system has symlink(shortcut) to matlab available
     num_decodes = 20
 
-    num_neurons = 32 #24*32
+    num_neurons = 8#24*32
     num_samples = 512
     num_dim = 1
 
@@ -28,31 +28,32 @@ def main():
         sci_io.savemat('y'+str(i)+'.mat', {'y': y})
     
     print "data saved! calling matlab"
-    cvx_calls = []
+    calls = []
     for i in range(num_decodes):
-        #cvx_calls.append([matlab_path, '-nodesktop', '-nosplash', '-nojvm', 
+        #calls.append([matlab_path, '-nodesktop', '-nosplash', '-nojvm', 
         #                  '-r', "hello; exit;"])
-        cvx_calls.append([matlab_path, '-nodesktop', '-nosplash', '-nojvm', 
+        calls.append([matlab_path, '-nodesktop', '-nosplash', '-nojvm', 
                           '-r', "cdw_cvx("+str(i)+"); exit;"])
 
     ###### sequential version ##################################################
     #for i in range(num_decodes):
-    #    call(cvx_calls[i])
+    #    call(calls[i])
 
     ###### multiprocess version with single process per job ####################
     #processes = []
     #for i in range(num_decodes):
-    #    processes.append(Process(target=foo, args=(cvx_calls[i],)))
-    #    #processes.append(Process(target=call, args=(cvx_calls[i],)))
+    #    processes.append(Process(target=foo, args=(calls[i],)))
+    #    #processes.append(Process(target=call, args=(calls[i],)))
     #    processes[i].start()
     #for i in range(num_decodes):
     #    processes[i].join()
 
     ###### multiprocess with pool of workers ###################################
     workers = Pool(8)
-    workers.map(call, cvx_calls)
+    workers.map(call, calls)
     workers.close()
     workers.join()
+    call(['stty', 'echo'])
 
 
 if __name__ == "__main__":
