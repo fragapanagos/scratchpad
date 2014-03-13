@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import pdb
 
 dt = .005
-t_end = 5.
+t_end = 10.1
 
-freq = 0.8 # Hz
+freq = 1.0 # Hz
 phase = 30. # deg
 amp = 1.
 noise_amp = .5
@@ -34,21 +34,24 @@ ft_fit[fit_idx] = ft_noisy_signal[fit_idx]
 ft_fit[-fit_idx] = ft_noisy_signal[-fit_idx]
 
 ft_fit_signal = ifft(ft_fit).real # we know signal is real
+rmse_guess = np.sqrt(np.mean((ft_fit_signal - signal)**2))
 
-freq_fit = freq[fit_idx]
-print 'frequency with highest power:', freq_fit
+freq_guess = freq[fit_idx]
+print 'frequency with highest power:', freq_guess
 
 amp_guess = max(abs(ft_fit_signal))
 phase_guess = np.angle(ft_fit[fit_idx], deg=True) + 90.
-offset_guess = 0.
-print 'amp,phase,offset guesses:', amp_guess, phase_guess, offset_guess
+print 'amp,freq,phase guesses:', amp_guess, freq_guess, phase_guess
+print 'rmse of guess:', rmse_guess
 
-fit_signal_guess = amp_guess * np.sin(2*pi*freq_fit*time + phase_guess*pi/180.)
-optimize_func = lambda x: x[0]*np.sin(2*pi*freq_fit*time + x[1]*pi/180.) + x[2] - noisy_signal
-amp_est, phase_est, offset_est = leastsq(optimize_func, [amp_guess, phase_guess, offset_guess])[0]
-print 'amp,phase,offset estimates:', amp_est, phase_est, offset_est
+fit_signal_guess = amp_guess * np.sin(2*pi*freq_guess*time + phase_guess*pi/180.)
+optimize_func = lambda x: x[0]*np.sin(2*pi*x[1]*time + x[2]*pi/180.) - noisy_signal
+amp_est, freq_est, phase_est = leastsq(optimize_func, [amp_guess, freq_guess, phase_guess])[0]
+fit_signal = amp_est * np.sin(2*pi*freq_est*time + phase_est*pi/180.)
+rmse_est = np.sqrt(np.mean((fit_signal - signal)**2))
+print 'amp,freq,phase estimates:', amp_est, freq_est, phase_est 
+print 'rmse of estimate:', rmse_est
 
-fit_signal = amp_est * np.sin(2*pi*freq_fit*time + phase_est*pi/180.) + offset_est
 
 # plotting
 plt.figure(figsize=(12,16))
