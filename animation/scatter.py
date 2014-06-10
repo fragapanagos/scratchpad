@@ -1,41 +1,46 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import animation
+import time
+import thread
 
 rate = 1e3
 nneurons = 32 
 dt = .01
 
-t = []
-spk_idx = []
+spk_t = [0.]
+spk_idx = [-1]
 
 fig = plt.figure()
 ax = plt.axes()
+txt = ax.text(1.5, nneurons-1, '', fontsize=14, bbox=dict(facecolor='white', alpha=0.5))
 dots, = ax.plot([], [], 'bo', ms=6)
 
 def init():
-    t.append(0.)
-    spk_idx.append(0)
-    ax.set_xlim(0,3)
     ax.set_ylim(0,nneurons)
+    ax.set_xlim([0,3])
+    ax.set_xticks([])
+    ax.set_xticklabels([])
+
     dots.set_data([], [])
-    return dots, ax
 
-def animate(i):
-    global t
-    global spk_idx
-    t.append(dt + t[-1])
+    return dots, ax, txt
+
+def animate(i, spk_t, spk_idx):
+    spk_t.append(dt + spk_t[-1])
     spk_idx.append(np.random.randint(0,nneurons))
-    if t[-1] - t[0] > 3.:
-        idx = np.argmax(t[-1] - np.array(t) < 3.)
-        t = t[idx:]
-        spk_idx = spk_idx[idx:]
-    dots.set_data(t, spk_idx)
-    if t[-1]>3.:
-        ax.set_xlim(t[0],t[-1])
-    return dots, ax
+    clip_idx = 0
+    while spk_t[-1] - spk_t[clip_idx] > 3.:
+        clip_idx += 1
+    if clip_idx > 0:
+        spk_t = spk_t[clip_idx:]
+        spk_idx = spk_idx[clip_idx:]
+    dots.set_data(np.array(spk_t)-spk_t[0], spk_idx)
 
-ani = animation.FuncAnimation(fig, animate, frames=600, 
+    txt.set_text("T = %.1f"%spk_t[-1])
+    return dots, txt, 
+
+ani = animation.FuncAnimation(fig, animate, frames=600, fargs=(spk_t, spk_idx),
                               interval=0, blit=True, init_func=init)
 
 plt.show()
